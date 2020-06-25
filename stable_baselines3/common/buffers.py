@@ -39,7 +39,7 @@ class BaseBuffer(object):
         self.n_envs = n_envs
 
     @staticmethod
-    def swap_and_flatten(arr: np.ndarray) -> np.ndarray:
+    def swap_and_flatten(arr: Union[np.ndarray, dict, tuple]) -> Union[np.ndarray, dict, tuple]:
         """
         Swap and then flatten axes 0 (buffer_size) and 1 (n_envs)
         to convert shape from [n_steps, n_envs, ...] (when ... is the shape of the features)
@@ -48,10 +48,16 @@ class BaseBuffer(object):
         :param arr: (np.ndarray)
         :return: (np.ndarray)
         """
-        shape = arr.shape
-        if len(shape) < 3:
-            shape = shape + (1,)
-        return arr.swapaxes(0, 1).reshape(shape[0] * shape[1], *shape[2:])
+
+        if isinstance(arr, dict):
+            return {k: BaseBuffer.swap_and_flatten(a) for k, a in arr.items()}
+        if isinstance(arr, tuple):
+            return tuple(BaseBuffer.swap_and_flatten(a) for a in arr)
+        elif isinstance(arr, np.ndarray):
+            shape = arr.shape
+            if len(shape) < 3:
+                shape = shape + (1,)
+            return arr.swapaxes(0, 1).reshape(shape[0] * shape[1], *shape[2:])
 
     def size(self) -> int:
         """
@@ -107,7 +113,7 @@ class BaseBuffer(object):
         """
         raise NotImplementedError()
 
-    def to_torch(self, array: np.ndarray, copy: bool = True) -> th.Tensor:
+    def to_torch(self, array: Union[np.ndarray, dict, tuple], copy: bool = True) -> th.Tensor:
         """
         Convert a numpy array to a PyTorch tensor.
         Note: it copies the data by default
@@ -117,9 +123,14 @@ class BaseBuffer(object):
             (may be useful to avoid changing things be reference)
         :return: (th.Tensor)
         """
-        if copy:
-            return th.tensor(array).to(self.device)
-        return th.as_tensor(array).to(self.device)
+        if isinstance(array, dict):
+            return {k: self.to_torch(arr, copy=copy) for k, arr in array}
+        elif isinstance(array, tuple):
+            return tuple(self.to_torch(arr, copy=copy) for arr in array)
+        elif isinstance(array, np.ndarray):
+            if copy:
+                return th.tensor(array).to(self.device)
+            return th.as_tensor(array).to(self.device)
 
     @staticmethod
     def _normalize_obs(obs: np.ndarray,
@@ -158,21 +169,45 @@ class ReplayBuffer(BaseBuffer):
 
         assert n_envs == 1, "Replay buffer only support single environment for now"
 
-        self.observations = np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape, dtype=np.float32)
+        if isinstance(self.observation_space, spaces.Dict):
+            self.observations = {k: np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=np.float32)
+                                 for k, obs_shape in self.obs_shape.items()}
+            self.next_observations = {k: np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=np.float32)
+                                      for k, obs_shape in self.obs_shape.items()}
+        elif isinstance(self.observation_space, spaces.Tuple):
+            self.observations = tuple(np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=np.float32)
+                                      for obs_shape in self.obs_shape)
+            self.next_observations = tuple(np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=np.float32)
+                                           for obs_shape in self.obs_shape)
+        else:
+            self.observations = np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape, dtype=np.float32)
+            self.next_observations = np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape, dtype=np.float32)
+
         self.actions = np.zeros((self.buffer_size, self.n_envs, self.action_dim), dtype=np.float32)
-        self.next_observations = np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape, dtype=np.float32)
         self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         self.dones = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
 
     def add(self,
-            obs: np.ndarray,
+            obs: Union[np.ndarray, dict, tuple],
             next_obs: np.ndarray,
             action: np.ndarray,
             reward: np.ndarray,
             done: np.ndarray) -> None:
         # Copy to avoid modification by reference
-        self.observations[self.pos] = np.array(obs).copy()
-        self.next_observations[self.pos] = np.array(next_obs).copy()
+        if isinstance(self.observation_space, spaces.Dict):
+            for k, obs_array in obs:
+                self.observations[k][self.pos] = np.array(obs_array).copy()
+            for k, obs_array in next_obs:
+                self.next_observations[k][self.pos] = np.array(obs_array).copy()
+        elif isinstance(self.observation_space, spaces.Tuple):
+            for i, obs_array in enumerate(obs):
+                self.observations[i][self.pos] = np.array(obs_array).copy()
+            for i, obs_array in enumerate(next_obs):
+                self.next_observations[i][self.pos] = np.array(obs_array).copy()
+        else:
+            self.observations[self.pos] = np.array(obs).copy()
+            self.next_observations[self.pos] = np.array(next_obs).copy()
+
         self.actions[self.pos] = np.array(action).copy()
         self.rewards[self.pos] = np.array(reward).copy()
         self.dones[self.pos] = np.array(done).copy()
@@ -227,7 +262,14 @@ class RolloutBuffer(BaseBuffer):
         self.reset()
 
     def reset(self) -> None:
-        self.observations = np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape, dtype=np.float32)
+        if isinstance(self.observation_space, spaces.Dict):
+            self.observations = {k: np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=np.float32)
+                                 for k, obs_shape in self.obs_shape.items()}
+        elif isinstance(self.observation_space, spaces.Tuple):
+            self.observations = tuple(np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=np.float32)
+                                      for obs_shape in self.obs_shape)
+        else:
+            self.observations = np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape, dtype=np.float32)
         self.actions = np.zeros((self.buffer_size, self.n_envs, self.action_dim), dtype=np.float32)
         self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         self.returns = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
@@ -292,7 +334,15 @@ class RolloutBuffer(BaseBuffer):
             # Reshape 0-d tensor to avoid error
             log_prob = log_prob.reshape(-1, 1)
 
-        self.observations[self.pos] = np.array(obs).copy()
+        if isinstance(self.observation_space, spaces.Dict):
+            for k, obs_array in obs:
+                self.observations[k][self.pos] = np.array(obs_array).copy()
+        elif isinstance(self.observation_space, spaces.Tuple):
+            for i, obs_array in enumerate(obs):
+                self.observations[i][self.pos] = np.array(obs_array).copy()
+        else:
+            self.observations[self.pos] = np.array(obs).copy()
+
         self.actions[self.pos] = np.array(action).copy()
         self.rewards[self.pos] = np.array(reward).copy()
         self.dones[self.pos] = np.array(done).copy()
@@ -323,7 +373,14 @@ class RolloutBuffer(BaseBuffer):
 
     def _get_samples(self, batch_inds: np.ndarray,
                      env: Optional[VecNormalize] = None) -> RolloutBufferSamples:
-        data = (self.observations[batch_inds],
+        if isinstance(self.observation_space, spaces.Dict):
+            observation_samples = {k: obs[batch_inds] for k, obs in self.observations.items()}
+        elif isinstance(self.observation_space, spaces.Tuple):
+            observation_samples = (obs[batch_inds] for obs in self.observations)
+        else:
+            observation_samples = self.observations[batch_inds]
+
+        data = (observation_samples,
                 self.actions[batch_inds],
                 self.values[batch_inds].flatten(),
                 self.log_probs[batch_inds].flatten(),

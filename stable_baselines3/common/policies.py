@@ -72,7 +72,7 @@ class BasePolicy(nn.Module):
         self.features_extractor_class = features_extractor_class
         self.features_extractor_kwargs = features_extractor_kwargs
 
-    def extract_features(self, obs: th.Tensor) -> th.Tensor:
+    def extract_features(self, obs: Union[th.Tensor, Dict, Tuple]) -> th.Tensor:
         """
         Preprocess the observation if needed and extract features.
 
@@ -467,7 +467,7 @@ class ActorCriticPolicy(BasePolicy):
         log_prob = distribution.log_prob(actions)
         return actions, values, log_prob
 
-    def _get_latent(self, obs: th.Tensor) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
+    def _get_latent(self, obs: Union[th.Tensor, Dict, Tuple]) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
         Get the latent code (i.e., activations of the last layer of each network)
         for the different networks.
@@ -513,7 +513,7 @@ class ActorCriticPolicy(BasePolicy):
         else:
             raise ValueError('Invalid action distribution')
 
-    def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
+    def _predict(self, observation: Union[th.Tensor, Dict, Tuple], deterministic: bool = False) -> th.Tensor:
         """
         Get the action according to the policy for a given observation.
 
@@ -525,7 +525,7 @@ class ActorCriticPolicy(BasePolicy):
         distribution = self._get_action_dist_from_latent(latent_pi, latent_sde)
         return distribution.get_actions(deterministic=deterministic)
 
-    def evaluate_actions(self, obs: th.Tensor,
+    def evaluate_actions(self, obs: Union[th.Tensor, Dict, Tuple],
                          actions: th.Tensor) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
         Evaluate actions according to the current policy,

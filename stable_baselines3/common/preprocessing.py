@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Union, Dict
 
 import torch as th
 import torch.nn.functional as F
@@ -45,7 +45,7 @@ def is_image_space(observation_space: spaces.Space,
     return False
 
 
-def preprocess_obs(obs: th.Tensor, observation_space: spaces.Space,
+def preprocess_obs(obs: Union[th.Tensor, Dict, Tuple], observation_space: spaces.Space,
                    normalize_images: bool = True) -> th.Tensor:
     """
     Preprocess observation to be to a neural network.
@@ -76,11 +76,19 @@ def preprocess_obs(obs: th.Tensor, observation_space: spaces.Space,
     elif isinstance(observation_space, spaces.MultiBinary):
         return obs.float()
 
+    elif isinstance(observation_space, spaces.Dict):
+        return {k: preprocess_obs(o, observation_space, normalize_images) for k, o in obs.items()}
+
+    elif isinstance(observation_space, spaces.Tuple):
+        return tuple(preprocess_obs(o, observation_space, normalize_images) for o in obs)
+
     else:
         raise NotImplementedError()
 
 
-def get_obs_shape(observation_space: spaces.Space) -> Tuple[int, ...]:
+def get_obs_shape(observation_space: spaces.Space) -> Union[Tuple[int, ...],
+                                                            Dict[str, Tuple[int, ...]],
+                                                            Tuple[Tuple[int, ...], ...]]:
     """
     Get the shape of the observation (useful for the buffers).
 
@@ -98,6 +106,10 @@ def get_obs_shape(observation_space: spaces.Space) -> Tuple[int, ...]:
     elif isinstance(observation_space, spaces.MultiBinary):
         # Number of binary features
         return int(observation_space.n),
+    elif isinstance(observation_space, spaces.Dict):
+        return {k: get_obs_shape(space) for k, space in observation_space.spaces.items()}
+    elif isinstance(observation_space, spaces.Tuple):
+        return (get_obs_shape(space) for space in observation_space.spaces)
     else:
         raise NotImplementedError()
 
