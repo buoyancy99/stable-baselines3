@@ -124,7 +124,7 @@ class BaseBuffer(object):
         :return: (th.Tensor)
         """
         if isinstance(array, dict):
-            return {k: self.to_torch(arr, copy=copy) for k, arr in array}
+            return {k: self.to_torch(arr, copy=copy) for k, arr in array.items()}
         elif isinstance(array, tuple):
             return tuple(self.to_torch(arr, copy=copy) for arr in array)
         elif isinstance(array, np.ndarray):
@@ -335,7 +335,7 @@ class RolloutBuffer(BaseBuffer):
             log_prob = log_prob.reshape(-1, 1)
 
         if isinstance(self.observation_space, spaces.Dict):
-            for k, obs_array in obs:
+            for k, obs_array in obs.items():
                 self.observations[k][self.pos] = np.array(obs_array).copy()
         elif isinstance(self.observation_space, spaces.Tuple):
             for i, obs_array in enumerate(obs):

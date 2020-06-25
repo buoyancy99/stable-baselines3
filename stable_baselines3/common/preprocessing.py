@@ -77,10 +77,10 @@ def preprocess_obs(obs: Union[th.Tensor, Dict, Tuple], observation_space: spaces
         return obs.float()
 
     elif isinstance(observation_space, spaces.Dict):
-        return {k: preprocess_obs(o, observation_space, normalize_images) for k, o in obs.items()}
+        return {k: preprocess_obs(o, observation_space.spaces[k], normalize_images) for k, o in obs.items()}
 
     elif isinstance(observation_space, spaces.Tuple):
-        return tuple(preprocess_obs(o, observation_space, normalize_images) for o in obs)
+        return tuple(preprocess_obs(o, os, normalize_images) for o, os in zip(obs, observation_space.spaces))
 
     else:
         raise NotImplementedError()

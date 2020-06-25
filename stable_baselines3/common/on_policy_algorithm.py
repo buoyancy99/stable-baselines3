@@ -131,7 +131,7 @@ class OnPolicyAlgorithm(BaseAlgorithm):
 
             with th.no_grad():
                 # Convert to pytorch tensor
-                obs_tensor = th.as_tensor(self._last_obs).to(self.device)
+                obs_tensor = rollout_buffer.to_torch(self._last_obs)
                 actions, values, log_probs = self.policy.forward(obs_tensor)
             actions = actions.cpu().numpy()
 
