@@ -233,6 +233,16 @@ def is_vectorized_observation(observation: np.ndarray, observation_space: gym.sp
             raise ValueError(f"Error: Unexpected observation shape {observation.shape} for MultiBinary "
                              + f"environment, please use ({observation_space.n},) or "
                              + f"(n_env, {observation_space.n}) for the observation shape.")
+    elif isinstance(observation_space, gym.spaces.Dict):
+        vectorized = True
+        for k, obs_space in observation_space.spaces.items():
+            vectorized = vectorized and is_vectorized_observation(obs_space)
+        return vectorized
+    elif isinstance(observation_space, gym.spaces.Tuple):
+        vectorized = True
+        for obs_space in observation_space.spaces:
+            vectorized = vectorized and is_vectorized_observation(obs_space)
+        return vectorized
     else:
         raise ValueError("Error: Cannot determine if the observation is vectorized "
                          + f" with the space type {observation_space}.")

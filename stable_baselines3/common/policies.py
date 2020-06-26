@@ -135,26 +135,38 @@ class BasePolicy(nn.Module):
         #     state = self.initial_state
         # if mask is None:
         #     mask = [False for _ in range(self.n_envs)]
-        observation = np.array(observation)
+        if isinstance(self.observation_space, gym.spaces.Dict):
+            observation = {k: np.array(obs) for k, obs in observation.items()}
+        if isinstance(self.observation_space, gym.spaces.Tuple):
+            observation = tuple(np.array(obs) for obs in observation)
+        else:
+            observation = np.array(observation)
 
-        # Handle the different cases for images
-        # as PyTorch use channel first format
-        if is_image_space(self.observation_space):
-            if (observation.shape == self.observation_space.shape
-                    or observation.shape[1:] == self.observation_space.shape):
-                pass
-            else:
-                # Try to re-order the channels
-                transpose_obs = VecTransposeImage.transpose_image(observation)
-                if (transpose_obs.shape == self.observation_space.shape
-                        or transpose_obs.shape[1:] == self.observation_space.shape):
-                    observation = transpose_obs
+            # Handle the different cases for images
+            # as PyTorch use channel first format
+            if is_image_space(self.observation_space):
+                if (observation.shape == self.observation_space.shape
+                        or observation.shape[1:] == self.observation_space.shape):
+                    pass
+                else:
+                    # Try to re-order the channels
+                    transpose_obs = VecTransposeImage.transpose_image(observation)
+                    if (transpose_obs.shape == self.observation_space.shape
+                            or transpose_obs.shape[1:] == self.observation_space.shape):
+                        observation = transpose_obs
 
         vectorized_env = is_vectorized_observation(observation, self.observation_space)
 
-        observation = observation.reshape((-1,) + self.observation_space.shape)
+        if isinstance(self.observation_space, gym.spaces.Dict):
+            observation = {k: th.as_tensor(obs.reshape((-1,) + self.observation_space.shape)).to(self.device)
+                           for k, obs in observation.items()}
+        if isinstance(self.observation_space, gym.spaces.Tuple):
+            observation = tuple(th.as_tensor(obs.reshape((-1,) + self.observation_space.shape)).to(self.device)
+                                for obs in observation.items())
+        else:
+            observation = observation.reshape((-1,) + self.observation_space.shape)
+            observation = th.as_tensor(observation).to(self.device)
 
-        observation = th.as_tensor(observation).to(self.device)
         with th.no_grad():
             actions = self._predict(observation, deterministic=deterministic)
         # Convert to numpy
