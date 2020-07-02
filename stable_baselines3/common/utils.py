@@ -236,12 +236,12 @@ def is_vectorized_observation(observation: np.ndarray, observation_space: gym.sp
     elif isinstance(observation_space, gym.spaces.Dict):
         vectorized = True
         for k, obs_space in observation_space.spaces.items():
-            vectorized = vectorized and is_vectorized_observation(obs_space)
+            vectorized = vectorized and is_vectorized_observation(observation[k], obs_space)
         return vectorized
     elif isinstance(observation_space, gym.spaces.Tuple):
         vectorized = True
-        for obs_space in observation_space.spaces:
-            vectorized = vectorized and is_vectorized_observation(obs_space)
+        for i, obs_space in enumerate(observation_space.spaces):
+            vectorized = vectorized and is_vectorized_observation(observation[i], obs_space)
         return vectorized
     else:
         raise ValueError("Error: Cannot determine if the observation is vectorized "
