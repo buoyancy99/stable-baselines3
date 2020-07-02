@@ -158,11 +158,11 @@ class BasePolicy(nn.Module):
         vectorized_env = is_vectorized_observation(observation, self.observation_space)
 
         if isinstance(self.observation_space, gym.spaces.Dict):
-            observation = {k: th.as_tensor(obs.reshape((-1,) + self.observation_space.shape)).to(self.device)
+            observation = {k: th.as_tensor(obs.reshape((-1,) + self.observation_space.spaces[k].shape)).to(self.device)
                            for k, obs in observation.items()}
-        if isinstance(self.observation_space, gym.spaces.Tuple):
-            observation = tuple(th.as_tensor(obs.reshape((-1,) + self.observation_space.shape)).to(self.device)
-                                for obs in observation.items())
+        elif isinstance(self.observation_space, gym.spaces.Tuple):
+            observation = tuple(th.as_tensor(obs.reshape((-1,) + self.observation_space.spaces[i].shape)).to(self.device)
+                                for i, obs in enumerate(observation))
         else:
             observation = observation.reshape((-1,) + self.observation_space.shape)
             observation = th.as_tensor(observation).to(self.device)
