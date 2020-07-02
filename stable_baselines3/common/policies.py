@@ -137,7 +137,7 @@ class BasePolicy(nn.Module):
         #     mask = [False for _ in range(self.n_envs)]
         if isinstance(self.observation_space, gym.spaces.Dict):
             observation = {k: np.array(obs) for k, obs in observation.items()}
-        if isinstance(self.observation_space, gym.spaces.Tuple):
+        elif isinstance(self.observation_space, gym.spaces.Tuple):
             observation = tuple(np.array(obs) for obs in observation)
         else:
             observation = np.array(observation)
