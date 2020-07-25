@@ -289,7 +289,7 @@ class BaseAlgorithm(ABC):
         return self.policy.predict(observation, state, mask, deterministic)
 
     @classmethod
-    def load(cls, load_path: str, env: Optional[GymEnv] = None, **kwargs):
+    def load(cls, load_path: str, env: Optional[GymEnv] = None, force=False, **kwargs):
         """
         Load the model from a zip-file
 
@@ -304,10 +304,11 @@ class BaseAlgorithm(ABC):
             for arg_to_remove in ['device']:
                 if arg_to_remove in data['policy_kwargs']:
                     del data['policy_kwargs'][arg_to_remove]
-
-        if 'policy_kwargs' in kwargs and kwargs['policy_kwargs'] != data['policy_kwargs']:
-            raise ValueError(f"The specified policy kwargs do not equal the stored policy kwargs."
-                             f"Stored kwargs: {data['policy_kwargs']}, specified kwargs: {kwargs['policy_kwargs']}")
+        
+        if not force:
+            if 'policy_kwargs' in kwargs and kwargs['policy_kwargs'] != data['policy_kwargs']:
+                raise ValueError(f"The specified policy kwargs do not equal the stored policy kwargs."
+                                 f"Stored kwargs: {data['policy_kwargs']}, specified kwargs: {kwargs['policy_kwargs']}")
 
         # check if observation space and action space are part of the saved parameters
         if ("observation_space" not in data or "action_space" not in data) and "env" not in data:
