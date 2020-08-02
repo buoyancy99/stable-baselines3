@@ -30,7 +30,8 @@ class Monitor(gym.Wrapper):
                  filename: Optional[str] = None,
                  allow_early_resets: bool = True,
                  reset_keywords: Tuple[str, ...] = (),
-                 info_keywords: Tuple[str, ...] = ()):
+                 info_keywords: Tuple[str, ...] = (),
+                 continue_from: int = 0):
         super(Monitor, self).__init__(env=env)
         self.t_start = time.time()
         if filename is None:
@@ -42,12 +43,26 @@ class Monitor(gym.Wrapper):
                     filename = os.path.join(filename, Monitor.EXT)
                 else:
                     filename = filename + "." + Monitor.EXT
-            self.file_handler = open(filename, "wt")
-            self.file_handler.write('#%s\n' % json.dumps({"t_start": self.t_start, 'env_id': env.spec and env.spec.id}))
-            self.logger = csv.DictWriter(self.file_handler,
-                                         fieldnames=('r', 'l', 't') + reset_keywords + info_keywords)
-            self.logger.writeheader()
-            self.file_handler.flush()
+            if continue_from:
+                with open(filename, 'rt') as file_handler:
+                    first_line = file_handler.readline()
+                    assert first_line[0] == '#'
+                    header = json.loads(first_line[1:])
+                    data_frame = pandas.read_csv(file_handler, index_col=None)
+                    data_frame = data_frame[:np.argmin(np.cumsum(data_frame['l'].to_numpy()) <= continue_from)]
+                self.file_handler = open(filename, "wt")
+                self.file_handler.write('#%s\n' % json.dumps(header))
+                self.file_handler.write(data_frame.to_csv(index=False, float_format='%.6f'))
+                self.logger = csv.DictWriter(self.file_handler,
+                                             fieldnames=('r', 'l', 't') + reset_keywords + info_keywords)
+                self.file_handler.flush()
+            else:
+                self.file_handler = open(filename, "wt")
+                self.file_handler.write('#%s\n' % json.dumps({"t_start": self.t_start, 'env_id': env.spec and env.spec.id}))
+                self.logger = csv.DictWriter(self.file_handler,
+                                             fieldnames=('r', 'l', 't') + reset_keywords + info_keywords)
+                self.logger.writeheader()
+                self.file_handler.flush()
 
         self.reset_keywords = reset_keywords
         self.info_keywords = info_keywords
