@@ -49,7 +49,9 @@ class Monitor(gym.Wrapper):
                     assert first_line[0] == '#'
                     header = json.loads(first_line[1:])
                     data_frame = pandas.read_csv(file_handler, index_col=None)
-                    data_frame = data_frame[:np.argmin(np.cumsum(data_frame['l'].to_numpy()) <= continue_from)]
+                    to_keep = np.cumsum(data_frame['l'].to_numpy()) <= continue_from
+                    if not to_keep.all():
+                        data_frame = data_frame[:np.argmin(to_keep)]
                 self.file_handler = open(filename, "wt")
                 self.file_handler.write('#%s\n' % json.dumps(header))
                 self.file_handler.write(data_frame.to_csv(index=False, float_format='%.6f'))
