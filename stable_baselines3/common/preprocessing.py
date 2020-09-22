@@ -1,14 +1,12 @@
 from typing import Tuple, Union, Dict
 
-import torch as th
-import torch.nn.functional as F
-from gym import spaces
 import numpy as np
+import torch as th
+from gym import spaces
+from torch.nn import functional as F
 
 
-def is_image_space(observation_space: spaces.Space,
-                   channels_last: bool = True,
-                   check_channels: bool = False) -> bool:
+def is_image_space(observation_space: spaces.Space, channels_last: bool = True, check_channels: bool = False) -> bool:
     """
     Check if a observation space has the shape, limits and dtype
     of a valid image.
@@ -69,9 +67,13 @@ def preprocess_obs(obs: Union[th.Tensor, Dict, Tuple], observation_space: spaces
 
     elif isinstance(observation_space, spaces.MultiDiscrete):
         # Tensor concatenation of one hot encodings of each Categorical sub-space
-        return th.cat([F.one_hot(obs_.long(), num_classes=int(observation_space.nvec[idx])).float()
-                       for idx, obs_ in enumerate(th.split(obs.long(), 1, dim=1))],
-                      dim=-1).view(obs.shape[0], sum(observation_space.nvec))
+        return th.cat(
+            [
+                F.one_hot(obs_.long(), num_classes=int(observation_space.nvec[idx])).float()
+                for idx, obs_ in enumerate(th.split(obs.long(), 1, dim=1))
+            ],
+            dim=-1,
+        ).view(obs.shape[0], sum(observation_space.nvec))
 
     elif isinstance(observation_space, spaces.MultiBinary):
         return obs.float()
@@ -99,10 +101,10 @@ def get_obs_shape(observation_space: spaces.Space) -> Union[Tuple[int, ...],
         return observation_space.shape
     elif isinstance(observation_space, spaces.Discrete):
         # Observation is an int
-        return 1,
+        return (1,)
     elif isinstance(observation_space, spaces.MultiDiscrete):
         # Number of discrete features
-        return int(len(observation_space.nvec)),
+        return (int(len(observation_space.nvec)),)
     elif isinstance(observation_space, spaces.MultiBinary):
         # Number of binary features
         return int(observation_space.n),

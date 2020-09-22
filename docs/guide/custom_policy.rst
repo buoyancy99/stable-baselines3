@@ -16,7 +16,7 @@ using ``policy_kwargs`` parameter:
 
   from stable_baselines3 import PPO
 
-  # Custom MLP policy of two layers of size 32 each with tanh activation function
+  # Custom MLP policy of two layers of size 32 each with Relu activation function
   policy_kwargs = dict(activation_fn=th.nn.ReLU, net_arch=[32, 32])
   # Create the agent
   model = PPO("MlpPolicy", "CartPole-v1", policy_kwargs=policy_kwargs, verbose=1)
@@ -37,8 +37,8 @@ You can also easily define a custom architecture for the policy (or value) netwo
 .. note::
 
     Defining a custom policy class is equivalent to passing ``policy_kwargs``.
-    However, it lets you name the policy and so makes usually the code clearer.
-    ``policy_kwargs`` should be rather used when doing hyperparameter search.
+    However, it lets you name the policy and so usually makes the code clearer.
+    ``policy_kwargs`` is particularly useful when doing hyperparameter search.
 
 
 

@@ -3,29 +3,102 @@
 Changelog
 ==========
 
-Pre-Release 0.8.0a0 (WIP)
+Pre-Release 0.9.0a1 (WIP)
 ------------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
-- ``save_replay_buffer`` now receives as argument the file path instead of the folder path (@tirafesi)
+- Removed ``device`` keyword argument of policies; use ``policy.to(device)`` instead. (@qxcv)
 
 New Features:
 ^^^^^^^^^^^^^
+- Added ``unwrap_vec_wrapper()`` to ``common.vec_env`` to extract ``VecEnvWrapper`` if needed
+- Added ``StopTrainingOnMaxEpisodes`` to callback collection (@xicocaio)
+- Added ``device`` keyword argument to ``BaseAlgorithm.load()`` (@liorcohen5)
+- Callbacks have access to rollout collection locals as in SB2. (@PartiallyTyped)
 
 Bug Fixes:
 ^^^^^^^^^^
-- Fixed a bug in the ``close()`` method of ``SubprocVecEnv``, causing wrappers further down in the wrapper stack to not be closed. (@NeoExtended)
+- Fixed a bug where the environment was reset twice when using ``evaluate_policy``
+- Fix logging of ``clip_fraction`` in PPO (@diditforlulz273)
+- Fixed a bug where cuda support was wrongly checked when passing the GPU index, e.g., ``device="cuda:0"`` (@liorcohen5)
 
 Deprecations:
 ^^^^^^^^^^^^^
 
 Others:
 ^^^^^^^
+- Improve typing coverage of the ``VecEnv``
+- Removed ``AlreadySteppingError`` and ``NotSteppingError`` that were not used
+- Fixed typos in SAC and TD3
+
+Documentation:
+^^^^^^^^^^^^^^
+- Added ``StopTrainingOnMaxEpisodes`` details and example (@xicocaio)
+
+
+
+Pre-Release 0.8.0 (2020-08-03)
+------------------------------
+
+**DQN, DDPG, bug fixes and performance matching for Atari games**
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- ``AtariWrapper`` and other Atari wrappers were updated to match SB2 ones
+- ``save_replay_buffer`` now receives as argument the file path instead of the folder path (@tirafesi)
+- Refactored ``Critic`` class for ``TD3`` and ``SAC``, it is now called ``ContinuousCritic``
+  and has an additional parameter ``n_critics``
+- ``SAC`` and ``TD3`` now accept an arbitrary number of critics (e.g. ``policy_kwargs=dict(n_critics=3)``)
+    instead of only 2 previously
+
+New Features:
+^^^^^^^^^^^^^
+- Added ``DQN`` Algorithm (@Artemis-Skade)
+- Buffer dtype is now set according to action and observation spaces for ``ReplayBuffer``
+- Added warning when allocation of a buffer may exceed the available memory of the system
+  when ``psutil`` is available
+- Saving models now automatically creates the necessary folders and raises appropriate warnings (@PartiallyTyped)
+- Refactored opening paths for saving and loading to use strings, pathlib or io.BufferedIOBase (@PartiallyTyped)
+- Added ``DDPG`` algorithm as a special case of ``TD3``.
+- Introduced ``BaseModel`` abstract parent for ``BasePolicy``, which critics inherit from.
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed a bug in the ``close()`` method of ``SubprocVecEnv``, causing wrappers further down in the wrapper stack to not be closed. (@NeoExtended)
+- Fix target for updating q values in SAC: the entropy term was not conditioned by terminals states
+- Use ``cloudpickle.load`` instead of ``pickle.load`` in ``CloudpickleWrapper``. (@shwang)
+- Fixed a bug with orthogonal initialization when `bias=False` in custom policy (@rk37)
+- Fixed approximate entropy calculation in PPO and A2C. (@andyshih12)
+- Fixed DQN target network sharing feature extractor with the main network.
+- Fixed storing correct ``dones`` in on-policy algorithm rollout collection. (@andyshih12)
+- Fixed number of filters in final convolutional layer in NatureCNN to match original implementation.
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+- Refactored off-policy algorithm to share the same ``.learn()`` method
+- Split the ``collect_rollout()`` method for off-policy algorithms
+- Added ``_on_step()`` for off-policy base class
+- Optimized replay buffer size by removing the need of ``next_observations`` numpy array
+- Optimized polyak updates (1.5-1.95 speedup) through inplace operations (@PartiallyTyped)
+- Switch to ``black`` codestyle and added ``make format``, ``make check-codestyle`` and ``commit-checks``
+- Ignored errors from newer pytype version
+- Added a check when using ``gSDE``
+- Removed codacy dependency from Dockerfile
+- Added ``common.sb2_compat.RMSpropTFLike`` optimizer, which corresponds closer to the implementation of RMSprop from Tensorflow.
 
 Documentation:
 ^^^^^^^^^^^^^^
 - Updated notebook links
+- Fixed a typo in the section of Enjoy a Trained Agent, in RL Baselines3 Zoo README. (@blurLake)
+- Added Unity reacher to the projects page (@koulakis)
+- Added PyBullet colab notebook
+- Fixed typo in PPO example code (@joeljosephjin)
+- Fixed typo in custom policy doc (@RaphaelWag)
+
 
 
 Pre-Release 0.7.0 (2020-06-10)
@@ -327,4 +400,5 @@ And all the contributors:
 @Miffyli @dwiel @miguelrass @qxcv @jaberkow @eavelardev @ruifeng96150 @pedrohbtp @srivatsankrishnan @evilsocket
 @MarvineGothic @jdossgollin @SyllogismRXS @rusu24edward @jbulow @Antymon @seheevic @justinkterry @edbeeching
 @flodorner @KuKuXia @NeoExtended @PartiallyTyped @mmcenta @richardwu @kinalmehta @rolandgvc @tkelestemur @mloo3
-@tirafesi
+@tirafesi @blurLake @koulakis @joeljosephjin @shwang @rk37 @andyshih12 @RaphaelWag @xicocaio
+@diditforlulz273 @liorcohen5

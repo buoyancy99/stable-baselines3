@@ -1,12 +1,8 @@
-import typing
 import numpy as np
 from gym import spaces
 
-from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvWrapper
 from stable_baselines3.common.preprocessing import is_image_space
-
-if typing.TYPE_CHECKING:
-    from stable_baselines3.common.type_aliases import GymStepReturn  # noqa: F401
+from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvStepReturn, VecEnvWrapper
 
 
 class VecTransposeImage(VecEnvWrapper):
@@ -18,7 +14,7 @@ class VecTransposeImage(VecEnvWrapper):
     """
 
     def __init__(self, venv: VecEnv):
-        assert is_image_space(venv.observation_space), 'The observation space must be an image'
+        assert is_image_space(venv.observation_space), "The observation space must be an image"
 
         observation_space = self.transpose_space(venv.observation_space)
         super(VecTransposeImage, self).__init__(venv, observation_space=observation_space)
@@ -31,7 +27,7 @@ class VecTransposeImage(VecEnvWrapper):
         :param observation_space: (spaces.Box)
         :return: (spaces.Box)
         """
-        assert is_image_space(observation_space), 'The observation space must be an image'
+        assert is_image_space(observation_space), "The observation space must be an image"
         width, height, channels = observation_space.shape
         new_shape = (channels, width, height)
         return spaces.Box(low=0, high=255, shape=new_shape, dtype=observation_space.dtype)
@@ -48,7 +44,7 @@ class VecTransposeImage(VecEnvWrapper):
             return np.transpose(image, (2, 0, 1))
         return np.transpose(image, (0, 3, 1, 2))
 
-    def step_wait(self) -> 'GymStepReturn':
+    def step_wait(self) -> VecEnvStepReturn:
         observations, rewards, dones, infos = self.venv.step_wait()
         return self.transpose_image(observations), rewards, dones, infos
 
