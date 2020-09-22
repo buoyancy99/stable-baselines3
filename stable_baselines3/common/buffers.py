@@ -182,7 +182,7 @@ class ReplayBuffer(BaseBuffer):
             mem_available = psutil.virtual_memory().available
 
         self.optimize_memory_usage = optimize_memory_usage
-        
+
         if isinstance(self.observation_space, spaces.Dict):
             self.observations = {k: np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=np.float32)
                                  for k, obs_shape in self.obs_shape.items()}
@@ -239,7 +239,7 @@ class ReplayBuffer(BaseBuffer):
                 self.observations[k][self.pos] = np.array(obs_array).copy()
             if self.optimize_memory_usage:
                 for k, obs_array in next_obs:
-                    self.observations[k](self.pos + 1) % self.buffer_size] = np.array(obs_array).copy()
+                    self.observations[k][(self.pos + 1) % self.buffer_size] = np.array(obs_array).copy()
             else:
                 for k, obs_array in next_obs:
                     self.next_observations[k][self.pos] = np.array(obs_array).copy()
