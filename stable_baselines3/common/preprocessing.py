@@ -116,6 +116,31 @@ def get_obs_shape(observation_space: spaces.Space) -> Union[Tuple[int, ...],
         raise NotImplementedError()
 
 
+def get_obs_dtype(observation_space: spaces.Space) -> Union[np.dtype, Dict[str, np.dtype], Tuple[np.dtype]]:
+    """
+    Get the dtype of the observation (useful for the buffers).
+    :param observation_space: (spaces.Space)
+    :return: Union[np.dtype, Dict[str, np.dtype], Tuple[np.dtype]]
+    """
+    if isinstance(observation_space, spaces.Box):
+        return observation_space.dtype
+    elif isinstance(observation_space, spaces.Discrete):
+        # Observation is an int
+        return observation_space.dtype
+    elif isinstance(observation_space, spaces.MultiDiscrete):
+        # Number of discrete features
+        return observation_space.dtype
+    elif isinstance(observation_space, spaces.MultiBinary):
+        # Number of binary features
+        return observation_space.dtype
+    elif isinstance(observation_space, spaces.Dict):
+        return {k: get_obs_dtype(space) for k, space in observation_space.spaces.items()}
+    elif isinstance(observation_space, spaces.Tuple):
+        return (get_obs_dtype(space) for space in observation_space.spaces)
+    else:
+        raise NotImplementedError()
+
+
 def get_flattened_obs_dim(observation_space: spaces.Space) -> int:
     """
     Get the dimension of the observation space when flattened.

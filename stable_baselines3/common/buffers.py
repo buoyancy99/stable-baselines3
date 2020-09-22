@@ -11,7 +11,7 @@ try:
 except ImportError:
     psutil = None
 
-from stable_baselines3.common.preprocessing import get_action_dim, get_obs_shape
+from stable_baselines3.common.preprocessing import get_action_dim, get_obs_shape, get_obs_dtype
 from stable_baselines3.common.type_aliases import ReplayBufferSamples, RolloutBufferSamples
 from stable_baselines3.common.vec_env import VecNormalize
 
@@ -41,6 +41,7 @@ class BaseBuffer(object):
         self.observation_space = observation_space
         self.action_space = action_space
         self.obs_shape = get_obs_shape(observation_space)
+        self.obs_dtype = get_obs_dtype(observation_space)
         self.action_dim = get_action_dim(action_space)
         self.pos = 0
         self.full = False
@@ -184,27 +185,30 @@ class ReplayBuffer(BaseBuffer):
         self.optimize_memory_usage = optimize_memory_usage
 
         if isinstance(self.observation_space, spaces.Dict):
-            self.observations = {k: np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=np.float32)
+            self.observations = {k: np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=self.obs_dtype[k])
                                  for k, obs_shape in self.obs_shape.items()}
             if optimize_memory_usage:
                 self.next_observations = None
             else:
-                self.next_observations = {k: np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=np.float32)
-                                        for k, obs_shape in self.obs_shape.items()}
+                self.next_observations = \
+                    {k: np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=self.obs_dtype[k])
+                     for k, obs_shape in self.obs_shape.items()}
         elif isinstance(self.observation_space, spaces.Tuple):
-            self.observations = tuple(np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=np.float32)
-                                      for obs_shape in self.obs_shape)
+            self.observations = tuple(np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape[i],
+                                               dtype=self.obs_dtype[i]) for i in range(len(self.obs_shape)))
             if optimize_memory_usage:
                 self.next_observations = None
             else:
-                self.next_observations = tuple(np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=np.float32)
-                                            for obs_shape in self.obs_shape)
+                self.next_observations = tuple(np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape[i],
+                                               dtype=self.obs_dtype[i]) for i in range(len(self.obs_shape)))
         else:
-            self.observations = np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape, dtype=np.float32)
+            self.observations = np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape,
+                                         dtype=observation_space.dtype)
             if optimize_memory_usage:
                 self.next_observations = None
             else:
-                self.next_observations = np.zeros((self.buffer_size, self.n_envs) + self.obs_shape, dtype=observation_space.dtype)
+                self.next_observations = np.zeros((self.buffer_size, self.n_envs) + self.obs_shape,
+                                                  dtype=observation_space.dtype)
 
         self.actions = np.zeros((self.buffer_size, self.n_envs, self.action_dim), dtype=action_space.dtype)
         self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
@@ -232,7 +236,6 @@ class ReplayBuffer(BaseBuffer):
         reward: np.ndarray,
         done: np.ndarray
     ) -> None:
-
 
         if isinstance(self.observation_space, spaces.Dict):
             for k, obs_array in obs:
