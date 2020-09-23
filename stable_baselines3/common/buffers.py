@@ -193,6 +193,8 @@ class ReplayBuffer(BaseBuffer):
                 self.next_observations = \
                     {k: np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=self.obs_dtype[k])
                      for k, obs_shape in self.obs_shape.items()}
+
+            obs_bytes = sum([v.nbytes for k, v in self.observations.items()])
         elif isinstance(self.observation_space, spaces.Tuple):
             self.observations = tuple(np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape[i],
                                                dtype=self.obs_dtype[i]) for i in range(len(self.obs_shape)))
@@ -201,6 +203,8 @@ class ReplayBuffer(BaseBuffer):
             else:
                 self.next_observations = tuple(np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape[i],
                                                dtype=self.obs_dtype[i]) for i in range(len(self.obs_shape)))
+
+            obs_bytes = sum([v.nbytes for v in self.observations])
         else:
             self.observations = np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape,
                                          dtype=observation_space.dtype)
@@ -210,14 +214,16 @@ class ReplayBuffer(BaseBuffer):
                 self.next_observations = np.zeros((self.buffer_size, self.n_envs) + self.obs_shape,
                                                   dtype=observation_space.dtype)
 
+            obs_bytes = self.observations.nbytes
+
         self.actions = np.zeros((self.buffer_size, self.n_envs, self.action_dim), dtype=action_space.dtype)
         self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         self.dones = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
 
         if psutil is not None:
-            total_memory_usage = self.observations.nbytes + self.actions.nbytes + self.rewards.nbytes + self.dones.nbytes
+            total_memory_usage = obs_bytes + self.actions.nbytes + self.rewards.nbytes + self.dones.nbytes
             if self.next_observations is not None:
-                total_memory_usage += self.next_observations.nbytes
+                total_memory_usage += obs_bytes
 
             if total_memory_usage > mem_available:
                 # Convert to GB
@@ -238,13 +244,13 @@ class ReplayBuffer(BaseBuffer):
     ) -> None:
 
         if isinstance(self.observation_space, spaces.Dict):
-            for k, obs_array in obs:
+            for k, obs_array in obs.items():
                 self.observations[k][self.pos] = np.array(obs_array).copy()
             if self.optimize_memory_usage:
-                for k, obs_array in next_obs:
+                for k, obs_array in next_obs.items():
                     self.observations[k][(self.pos + 1) % self.buffer_size] = np.array(obs_array).copy()
             else:
-                for k, obs_array in next_obs:
+                for k, obs_array in next_obs.items():
                     self.next_observations[k][self.pos] = np.array(obs_array).copy()
         elif isinstance(self.observation_space, spaces.Tuple):
             for i, obs_array in enumerate(obs):
@@ -294,15 +300,36 @@ class ReplayBuffer(BaseBuffer):
         return self._get_samples(batch_inds, env=env)
 
     def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> ReplayBufferSamples:
-        if self.optimize_memory_usage:
-            next_obs = self._normalize_obs(self.observations[(batch_inds + 1) % self.buffer_size, 0, :], env)
+        if isinstance(self.observation_space, spaces.Dict):
+            observation_samples = {k: self._normalize_obs(obs[batch_inds, 0], env)
+                                   for k, obs in self.observations.items()}
+            if self.optimize_memory_usage:
+                next_observation_samples = {k: self._normalize_obs(obs[(batch_inds + 1) % self.buffer_size, 0], env)
+                                            for k, obs in self.observations.items()}
+            else:
+                next_observation_samples = {k: self._normalize_obs(next_obs[batch_inds, 0], env)
+                                            for k, next_obs in self.next_observations.items()}
+        elif isinstance(self.observation_space, spaces.Tuple):
+            observation_samples = (self._normalize_obs(obs[batch_inds, 0], env)
+                                   for obs in self.observations)
+            if self.optimize_memory_usage:
+                next_observation_samples = (self._normalize_obs(obs[(batch_inds + 1) % self.buffer_size, 0], env)
+                                            for obs in self.observations)
+            else:
+                next_observation_samples = (self._normalize_obs(next_obs[batch_inds, 0], env)
+                                            for next_obs in self.next_observations)
         else:
-            next_obs = self._normalize_obs(self.next_observations[batch_inds, 0, :], env)
+            observation_samples = self._normalize_obs(self.observations[batch_inds, 0, :], env),
+            if self.optimize_memory_usage:
+                next_observation_samples = self._normalize_obs(self.observations[(batch_inds + 1) %
+                                                                                 self.buffer_size, 0, :], env)
+            else:
+                next_observation_samples = self._normalize_obs(self.next_observations[batch_inds, 0, :], env)
 
         data = (
-            self._normalize_obs(self.observations[batch_inds, 0, :], env),
+            observation_samples,
             self.actions[batch_inds, 0, :],
-            next_obs,
+            next_observation_samples,
             self.dones[batch_inds],
             self._normalize_reward(self.rewards[batch_inds], env),
         )
