@@ -1,5 +1,5 @@
 import pickle
-
+import gym.spaces as spaces
 import numpy as np
 
 from stable_baselines3.common.running_mean_std import RunningMeanStd
@@ -25,7 +25,12 @@ class VecNormalize(VecEnvWrapper):
         self, venv, training=True, norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=10.0, gamma=0.99, epsilon=1e-8
     ):
         VecEnvWrapper.__init__(self, venv)
-        self.obs_rms = RunningMeanStd(shape=self.observation_space.shape)
+        if isinstance(self.observation_space, spaces.Dict):
+            self.obs_rms = {RunningMeanStd(shape=space.shape) for k, space in self.observation_space.spaces.items()}
+        elif isinstance(self.observation_space, spaces.Tuple):
+            self.obs_rms = tuple(RunningMeanStd(shape=space.shape) for space in self.observation_space.spaces)
+        else:
+            self.obs_rms = RunningMeanStd(shape=self.observation_space.shape)
         self.ret_rms = RunningMeanStd(shape=())
         self.clip_obs = clip_obs
         self.clip_reward = clip_reward
@@ -74,8 +79,18 @@ class VecNormalize(VecEnvWrapper):
         if self.venv is not None:
             raise ValueError("Trying to set venv of already initialized VecNormalize wrapper.")
         VecEnvWrapper.__init__(self, venv)
-        if self.obs_rms.mean.shape != self.observation_space.shape:
-            raise ValueError("venv is incompatible with current statistics.")
+        if isinstance(self.observation_space, spaces.Dict):
+            for k, space in self.observation_space.spaces.items():
+                if self.obs_rms[k].mean.shape != self.observation_space[k].shape:
+                    raise ValueError("venv is incompatible with current statistics.")
+        elif isinstance(self.observation_space, spaces.Tuple):
+            for i in range(len(self.observation_space.spaces)):
+                if self.obs_rms[i].mean.shape != self.observation_space[i].shape:
+                    raise ValueError("venv is incompatible with current statistics.")
+        else:
+            if self.obs_rms.mean.shape != self.observation_space.shape:
+                raise ValueError("venv is incompatible with current statistics.")
+        
         self.ret = np.zeros(self.num_envs)
 
     def step_wait(self):
@@ -111,8 +126,17 @@ class VecNormalize(VecEnvWrapper):
         Calling this method does not update statistics.
         """
         if self.norm_obs:
-            obs = np.clip((obs - self.obs_rms.mean) / np.sqrt(self.obs_rms.var + self.epsilon), -self.clip_obs, self.clip_obs)
-        return obs
+            if isinstance(self.observation_space, spaces.Dict):
+                normalized_obs = {}
+                for k, _ in self.observation_space.spaces.items():
+                    normalized_obs[k] = np.clip((obs - self.obs_rms[k].mean) / np.sqrt(self.obs_rms[k].var + self.epsilon), -self.clip_obs, self.clip_obs)
+            elif isinstance(self.observation_space, spaces.Tuple):
+                normalized_obs = []
+                for i in range(len(self.observation_space.spaces)):
+                    normalized_obs.append(np.clip((obs - self.obs_rms[i].mean) / np.sqrt(self.obs_rms[i].var + self.epsilon), -self.clip_obs, self.clip_obs))
+            else:
+                normalized_obs = np.clip((obs - self.obs_rms.mean) / np.sqrt(self.obs_rms.var + self.epsilon), -self.clip_obs, self.clip_obs)
+        return normalized_obs
 
     def normalize_reward(self, reward):
         """
@@ -125,7 +149,17 @@ class VecNormalize(VecEnvWrapper):
 
     def unnormalize_obs(self, obs):
         if self.norm_obs:
-            return (obs * np.sqrt(self.obs_rms.var + self.epsilon)) + self.obs_rms.mean
+            if isinstance(self.observation_space, spaces.Dict):
+                unnormalized_obs = {}
+                for k, _ in self.observation_space.spaces.items():
+                    unnormalized_obs[k] = (obs * np.sqrt(self.obs_rms[k].var + self.epsilon)) + self.obs_rms[k].mean
+            elif isinstance(self.observation_space, spaces.Tuple):
+                unnormalized_obs = []
+                for i in range(len(self.observation_space.spaces)):
+                    unnormalized_obs.append((obs * np.sqrt(self.obs_rms[i].var + self.epsilon)) + self.obs_rms[i].mean)
+            else:
+                unnormalized_obs = (obs * np.sqrt(self.obs_rms.var + self.epsilon)) + self.obs_rms.mean
+            return unnormalized_obs
         return obs
 
     def unnormalize_reward(self, reward):
