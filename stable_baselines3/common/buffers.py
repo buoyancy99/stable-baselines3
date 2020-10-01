@@ -371,13 +371,13 @@ class RolloutBuffer(BaseBuffer):
 
     def reset(self) -> None:
         if isinstance(self.observation_space, spaces.Dict):
-            self.observations = {k: np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=np.float32)
+            self.observations = {k: np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=self.obs_dtype[k])
                                  for k, obs_shape in self.obs_shape.items()}
         elif isinstance(self.observation_space, spaces.Tuple):
-            self.observations = tuple(np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=np.float32)
-                                      for obs_shape in self.obs_shape)
+            self.observations = tuple(np.zeros((self.buffer_size, self.n_envs,) + obs_shape, dtype=obs_dtype)
+                                      for obs_shape, obs_dtype in zip(self.obs_shape))
         else:
-            self.observations = np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape, dtype=np.float32)
+            self.observations = np.zeros((self.buffer_size, self.n_envs,) + self.obs_shape, dtype=self.obs_dtype)
         self.actions = np.zeros((self.buffer_size, self.n_envs, self.action_dim), dtype=np.float32)
         self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         self.returns = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
@@ -469,7 +469,7 @@ class RolloutBuffer(BaseBuffer):
 
         start_idx = 0
         while start_idx < self.buffer_size * self.n_envs:
-            yield self._get_samples(indices[start_idx : start_idx + batch_size])
+            yield self._get_samples(indices[start_idx: start_idx + batch_size])
             start_idx += batch_size
 
     def _get_samples(self, batch_inds: np.ndarray,
