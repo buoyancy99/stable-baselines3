@@ -57,7 +57,7 @@ def preprocess_obs(obs: Union[th.Tensor, Dict, Tuple], observation_space: spaces
     :return: (th.Tensor)
     """
     if isinstance(observation_space, spaces.Box):
-        if is_image_space(observation_space) and normalize_images:
+        if observation_space.dtype == np.uint8 and normalize_images:
             return obs.float() / 255.0
         return obs.float()
 
