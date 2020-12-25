@@ -222,7 +222,7 @@ class PPO(OnPolicyAlgorithm):
             all_kl_divs.append(np.mean(approx_kl_divs))
 
             if self.target_kl is not None and np.mean(approx_kl_divs) > 1.5 * self.target_kl:
-                print(f"Early stopping at step {epoch} due to reaching max kl: {np.mean(approx_kl_divs):.2f}")
+                print(f"Early stopping at epoch {epoch} due to reaching max kl: {np.mean(approx_kl_divs):.2f}")
                 break
 
         self._n_updates += self.n_epochs
